@@ -1,11 +1,16 @@
 import re, os
 from telethon import TelegramClient, events, sync
-from common.filters import buy_filter, exit_filter
-from dotenv import load_dotenv
+from common.filters import buy_filter, exit_filter, book_profits_filter
+from dotenv import load_dotenv, find_dotenv
+from brokers.FivePaisa import FivePaisa
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
-client = TelegramClient('session_name', os.getenv('api_id'), os.getenv('api_hash'))
+api_id = os.getenv('API_ID')
+api_hash = os.getenv('API_HASH')
+
+client = TelegramClient('new_session', api_id , api_hash)
+five_paisa = FivePaisa()
 
 with client:
     
@@ -37,19 +42,26 @@ with client:
             print("This is a buy call.")
             transaction_details = buy_filter(recommendation)
             print("Cleaned transaction details received: ", transaction_details)
+            position_amount = five_paisa.get_position_amount()
+
+            share_qty = five_paisa.get_share_qty(transaction_details['price'], position_amount)
+            if share_qty > 0:
+                five_paisa.buy(transaction_details['scrip'], transaction_details['stop_loss'], transaction_details['target'], share_qty, transaction_details['price'])
         elif exit_regex.search(recommendation):
             print("This is a exit call.")
             transaction_details = exit_filter(recommendation)
             print("Cleaned transaction details received: ", transaction_details)
+            five_paisa.sell(transaction_details['scrip'], transaction_details['target'])
         elif book_profits_regex.search(recommendation):
             print("This is a call to book profits")
-            # TODO create book profits filter
+            transaction_details = book_profits_filter(recommendation)
+            five_paisa.sell(transaction_details['scrip'], transaction_details['target'])
+            
         else:
             print("No regex match")
 
-        # TODO Add strategy to execute trades based on capital value so that not all capital is employed to a single trade
         # TODO create broker connectors to execute orders
-        # TODO Add logging to file to record transaction details
+        
 
 
     client.run_until_disconnected()
