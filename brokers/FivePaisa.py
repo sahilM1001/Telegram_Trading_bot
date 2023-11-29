@@ -8,8 +8,12 @@ class FivePaisa(TradingDesk):
     This is the sample class that inherits functions from the TradingDesk class.
     This class will be used to perform 5 Paisa specific transactions through the python SDK for 5Paisa
     """
-    CAPITAL = 10000
-    PORTFOLIO_PERCENT = 20
+    
+
+    def __init__(self):
+        self.CAPITAL = 10000
+        self.PORTFOLIO_PERCENT = 20
+        self.scrip_master = pd.read_csv("brokers/scrip masters/scripmaster-csv-format.csv")
 
     def buy(self, scrip_name, stop_loss, target, share_qty, market_price):
         """
@@ -24,22 +28,27 @@ class FivePaisa(TradingDesk):
         # TODO Add 5Paisa API calls to actually execute orders on 5Paisa account
         print("Buy order received")
         print(f"Buy {scrip_name} with stop loss {stop_loss} and target {target} with quantity {share_qty}")
-        df = pd.read_csv("brokers/order_tracking.csv")
+        scrip_code_row = self.scrip_master[self.scrip_master['Name'] == scrip_name]
+        scrip_code = scrip_code_row.iloc[0]['Scripcode']
+
+        df = pd.read_csv("brokers/order_tracking_v2.csv")
 
         new_row = {
             "date": str(date.today()),
             "time": str(time.strftime("%H:%M:%S", time.localtime())),
             "order_type": "BUY",
+            "scrip_code": scrip_code,
             "scrip_name": scrip_name,
             "price": market_price,
             "quantity": share_qty,
             "stop_loss": stop_loss,
-            "target": target
+            "target": target,
+            "bought_at": market_price
         }
 
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         
-        df.to_csv("brokers/order_tracking.csv", index=False)
+        df.to_csv("brokers/order_tracking_v2.csv", index=False)
 
         self.CAPITAL -= (share_qty * market_price)
 
@@ -53,27 +62,40 @@ class FivePaisa(TradingDesk):
         # TODO Add 5Paisa API calls to actually execute sell orders on 5Paisa account
         print("Sell order received")
         print(f"Sell {scrip_name} at price {target}")
-        df = pd.read_csv("brokers/order_tracking.csv")
+
+        scrip_code_row = self.scrip_master[self.scrip_master['Name'] == scrip_name]
+        scrip_code = scrip_code_row['Scripcode'].iloc[0]
+
+
+        df = pd.read_csv("brokers/order_tracking_v2.csv")
         
         
         filtered_row = df[(df['order_type'] == "BUY") & (df['scrip_name'] == scrip_name)]
         quantity_value = filtered_row['quantity'].iloc[0] if not filtered_row.empty else None
-        
-        new_row = {
-            "date": str(date.today()),
-            "time": str(time.strftime("%H:%M:%S", time.localtime())),
-            "order_type": "SELL",
-            "scrip_name": scrip_name,
-            "price": target,
-            "quantity": quantity_value ,
-            "stop_loss": "",
-            "target": ""
-        }
+        bought_at = filtered_row['price'].iloc[0] if not filtered_row.empty else None
 
-        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        if filtered_row.shape[0] > 0:
+            new_row = {
+                "date": str(date.today()),
+                "time": str(time.strftime("%H:%M:%S", time.localtime())),
+                "order_type": "SELL",
+                "scrip_code": scrip_code,
+                "scrip_name": scrip_name,
+                "price": target,
+                "quantity": quantity_value ,
+                "stop_loss": "",
+                "target": "",
+                "bought_at": bought_at
+            }
 
-        df.to_csv("brokers/order_tracking.csv", index=False)
-    
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+
+            df.to_csv("brokers/order_tracking_v2.csv", index=False)
+
+            self.CAPITAL += (quantity_value * target)
+        else:
+            print("Not selling as no previous buy found")
+            
     def get_open_positions(self):
         print("Get open positions")
 
