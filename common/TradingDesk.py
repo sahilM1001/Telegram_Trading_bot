@@ -36,4 +36,8 @@ class TradingDesk(ABC):
     @abstractmethod 
     def get_share_qty(self):
         print("Inside get share qty")
+
+    @abstractmethod
+    def get_lot_size(self):
+        print("Inside get lot size")
         

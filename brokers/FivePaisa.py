@@ -1,7 +1,11 @@
 from common.TradingDesk import TradingDesk
 import pandas as pd
-import time
+import time, os
 from datetime import date
+from py5paisa import FivePaisaClient
+from py5paisa.order import Order, OrderType, Exchange
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
 
 class FivePaisa(TradingDesk):
     """
@@ -11,9 +15,31 @@ class FivePaisa(TradingDesk):
     
 
     def __init__(self):
-        self.CAPITAL = 10000
+        self.CAPITAL = 20000
         self.PORTFOLIO_PERCENT = 20
-        self.scrip_master = pd.read_csv("brokers/scrip masters/scripmaster-csv-format.csv")
+        self.scrip_master = self.get_scrip_master()
+        self.cred = {
+            "APP_NAME": os.getenv("FIVE_PAISA_APP_NAME"),
+            "APP_SOURCE":os.getenv("FIVE_PAISA_APP_SOURCE"),
+            "USER_ID":os.getenv("FIVE_PAISA_USER_ID"),
+            "PASSWORD":os.getenv("FIVE_PAISA_PASSWORD"),
+            "USER_KEY":os.getenv("FIVE_PAISA_USER_KEY"),
+            "ENCRYPTION_KEY":os.getenv("FIVE_PAISA_ENCRYPTION_KEY")
+        }
+
+        print("self.creds: ", self.cred)
+
+        """self.five_paisa_broker = FivePaisaClient() 
+
+        self.five_paisa_broker.get_totp_session('Your ClientCode','TOTP from authenticator app','Your Pin') """
+
+    def get_scrip_master(self):
+        """
+        This function is used to download scrip master file from 5 paisa whenever the instance is created.
+        """
+        scrip_master = pd.read_csv("https://images.5paisa.com/website/scripmaster-csv-format.csv")
+        return scrip_master
+
 
     def buy(self, scrip_name, stop_loss, target, share_qty, market_price):
         """
@@ -27,30 +53,50 @@ class FivePaisa(TradingDesk):
         """
         # TODO Add 5Paisa API calls to actually execute orders on 5Paisa account
         print("Buy order received")
+
         print(f"Buy {scrip_name} with stop loss {stop_loss} and target {target} with quantity {share_qty}")
-        scrip_code_row = self.scrip_master[self.scrip_master['Name'] == scrip_name]
-        scrip_code = scrip_code_row.iloc[0]['Scripcode']
+        scrip_code_row = self.scrip_master[self.scrip_master['Name'] == scrip_name].iloc[0]
+        scrip_code = scrip_code_row['Scripcode']
 
-        df = pd.read_csv("brokers/order_tracking_v2.csv")
+        lot_size = self.get_lot_size(scrip_code)
+        approved_position_amount = self.get_position_amount()
 
-        new_row = {
-            "date": str(date.today()),
-            "time": str(time.strftime("%H:%M:%S", time.localtime())),
-            "order_type": "BUY",
-            "scrip_code": scrip_code,
-            "scrip_name": scrip_name,
-            "price": market_price,
-            "quantity": share_qty,
-            "stop_loss": stop_loss,
-            "target": target,
-            "bought_at": market_price
-        }
-
-        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        if lot_size != 1:
+            share_qty = lot_size
+            print(f" for approved_postion_amount: {approved_position_amount} share_qty from lot size is {share_qty}")
+            if (share_qty * market_price) < approved_position_amount: 
+                share_qty = self.get_max_share_qty(share_qty * market_price, approved_position_amount, lot_size)
+                print(f" for approved_postion_amount: {approved_position_amount} share_qty from get max share qty is {share_qty}")
         
-        df.to_csv("brokers/order_tracking_v2.csv", index=False)
+        if (share_qty * market_price) <= approved_position_amount:
 
-        self.CAPITAL -= (share_qty * market_price)
+
+            """order_response = self.five_paisa_broker.place_order(OrderType='B', Exchange=scrip_code_row['Exch'], 
+                                               ExchangeType=scrip_code_row['ExchType'], ScripCode = scrip_code_row['Scripcode'], 
+                                               Qty=share_qty, Price=market_price, StopLossPrice = stop_loss)"""
+            
+            df = pd.read_csv("brokers/order_tracking_v2.csv")
+
+            new_row = {
+                "date": str(date.today()),
+                "time": str(time.strftime("%H:%M:%S", time.localtime())),
+                "order_type": "BUY",
+                "scrip_code": scrip_code,
+                "scrip_name": scrip_name,
+                "price": market_price,
+                "quantity": share_qty,
+                "stop_loss": stop_loss,
+                "target": target,
+                "bought_at": market_price
+            }
+
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            
+            df.to_csv("brokers/order_tracking_v2.csv", index=False)
+
+            self.CAPITAL -= (share_qty * market_price)
+        else:
+            print(f"Shares were not bought because position amount {share_qty * market_price} > {self.get_position_amount()} approved position amount")
 
     def sell(self, scrip_name, target):
         """
@@ -63,16 +109,16 @@ class FivePaisa(TradingDesk):
         print("Sell order received")
         print(f"Sell {scrip_name} at price {target}")
 
-        scrip_code_row = self.scrip_master[self.scrip_master['Name'] == scrip_name]
-        scrip_code = scrip_code_row['Scripcode'].iloc[0]
+        scrip_code_row = self.scrip_master[self.scrip_master['Name'] == scrip_name].iloc[0]
+        scrip_code = scrip_code_row['Scripcode']
 
 
         df = pd.read_csv("brokers/order_tracking_v2.csv")
         
         
         filtered_row = df[(df['order_type'] == "BUY") & (df['scrip_name'] == scrip_name)]
-        quantity_value = filtered_row['quantity'].iloc[0] if not filtered_row.empty else None
-        bought_at = filtered_row['price'].iloc[0] if not filtered_row.empty else None
+        quantity_value = filtered_row['quantity'].iloc[0] if not filtered_row.empty else 0
+        bought_at = filtered_row['price'].iloc[0] if not filtered_row.empty else 0
 
         if filtered_row.shape[0] > 0:
             new_row = {
@@ -125,3 +171,21 @@ class FivePaisa(TradingDesk):
         """
         print(f"You can buy {int(position_amount/share_price)} shares with share price {share_price} and position size Rs {position_amount}")
         return int(position_amount/share_price)
+
+    def get_lot_size(self, scrip_code):
+        """
+        This function is used to get lot size for any stock/F&O recommendation based on the scrip_code
+        :param scrip_code -> Scrip code of the recommended security. This can be obtained from scrip master
+        """
+        row = self.scrip_master[self.scrip_master['Scripcode'] == scrip_code]
+        return row.iloc[0]['LotSize']
+    
+    def get_max_share_qty(self, lot_price, approved_position_amount, lot_size):
+        """
+        This function is used to find maximum share quantity that can be purchased while being under the approved position amount (20% of capital per trade)
+        :param lot_price -> price of the lot
+        :param approved_position_amount -> approved position amount (20% of capital per trade)
+        :param lot_size -> Size of lot. BANKNIFTY lot size is 15, NIFTY is 50
+        """
+        return ((approved_position_amount // lot_price) * lot_size)
+
