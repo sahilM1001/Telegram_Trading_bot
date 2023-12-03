@@ -42,8 +42,13 @@ with TelegramClient('session_1_dec', api_id , api_hash) as client:
 
         if buy_regex.search(recommendation):
             print("This is a buy call.")
+            
+            scrip_name_regex = r'(?<=\bBUY\b\s)(.*)'
+            price_regex = r'\bCMP\s*:\s*(.*)'
+            stop_loss_regex = r'\bSL\s*:\s*(.*)'
+            target_regex = r'\bTGT\s*:\s*(.*)'
 
-            transaction_details = buy_filter(recommendation)
+            transaction_details = buy_filter(recommendation, scrip_name_regex, price_regex, stop_loss_regex, target_regex)
             print("Cleaned transaction details received: ", transaction_details)
             
             position_amount = five_paisa.get_position_amount()
@@ -55,8 +60,10 @@ with TelegramClient('session_1_dec', api_id , api_hash) as client:
                 print("Not taking trade because share qty is 0 or limit not available")
         elif exit_regex.search(recommendation):
             print("This is a exit call.")
+            scrip_name_regex = r'Exit from\s*\n*\s*(.*)'
+            target_regex = r'\bAT:\s*(.*)'
 
-            transaction_details = exit_filter(recommendation)
+            transaction_details = exit_filter(recommendation, scrip_name_regex, target_regex)
             print("Cleaned transaction details received: ", transaction_details)
 
             five_paisa.sell(transaction_details['scrip'], transaction_details['target'])
@@ -64,7 +71,10 @@ with TelegramClient('session_1_dec', api_id , api_hash) as client:
         elif book_profits_regex.search(recommendation):
             print("This is a call to book profits")
             
-            transaction_details = book_profits_filter(recommendation)
+            scrip_name_regex = r'Book Profits in\s*\n*\s*(.*)'
+            target_regex = r'\bAT CMP :\s*(.*)'
+            
+            transaction_details = book_profits_filter(recommendation, scrip_name_regex, target_regex)
             five_paisa.sell(transaction_details['scrip'], transaction_details['target'])
             
         else:
