@@ -1,10 +1,10 @@
 import re, os
 from telethon import TelegramClient, events, sync
 from common.filters import buy_filter, exit_filter, book_profits_filter
-from common.helper import get_scrip_name_from_scrip_master
+from common.helper import get_scrip_name_from_scrip_master, create_error_message
 from dotenv import load_dotenv, find_dotenv
 from brokers.FivePaisa import FivePaisa
-import sys
+import sys, traceback
 
 load_dotenv(find_dotenv())
 
@@ -19,8 +19,8 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
     client.start()
     print("Client is connected")
     # use below code to find channel id
-    """ 
-    dialogs = client.get_dialogs()
+ 
+    """dialogs = client.get_dialogs()
     five_paisa_id = 0
     for dialog in dialogs:
         print("Dialog: ", dialog.name)
@@ -28,8 +28,10 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
         five_paisa_id = dialog.message.peer_id.channel_id
 
         print("Dialog: ", dialog)
-        print("==========================================") """
+        print("==========================================") 
             
+
+    sys.exit()"""
     # Sahil test channel ID-> 2129439742
     # 5Paisa telegram channel id -> 1400983952
     @client.on(events.NewMessage(chats=1400983952)) 
@@ -66,6 +68,10 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
                     print("Not taking trade because share qty is 0 or limit not available")
             except Exception as e:
                 # TODO add exception alerting to telegram channel for manual intervention
+                exception_details = str(e)
+                traceback_details =  traceback.format_exc()
+                error_message = create_error_message("5Paisa Channel", recommendation, exception_details, traceback_details)
+                await client.send_message(entity=2067424743, message=error_message)
                 print("Exception occured while processing BUY call from 5 Paisa")
         elif exit_regex.search(recommendation):
             try:
@@ -85,6 +91,12 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
                 five_paisa.sell(transaction_details['scrip'], transaction_details['target'])
             except Exception as e:
                 # TODO add exception alerting to telegram channel for manual intervention
+
+                exception_details = str(e)
+                traceback_details =  traceback.format_exc()
+                error_message = create_error_message("5Paisa Channel", recommendation, exception_details, traceback_details)
+                await client.send_message(entity=2067424743, message=error_message)
+
                 print("Exception occured while processing EXIT call from 5 Paisa")
             
         elif book_profits_regex.search(recommendation):
@@ -98,6 +110,12 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
                 five_paisa.sell(transaction_details['scrip'], transaction_details['target'])
             except Exception as e:
                 # TODO add exception alerting to telegram channel for manual intervention
+
+                exception_details = str(e)
+                traceback_details =  traceback.format_exc()
+                error_message = create_error_message("5Paisa Channel", recommendation, exception_details, traceback_details)
+                await client.send_message(entity=2067424743, message=error_message)
+
                 print("Exception occured while processing BOOK PROFITS call from 5 Paisa")
             
         else:
@@ -105,7 +123,9 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
 
         # TODO create broker connectors to execute orders
         
-    @client.on(events.NewMessage(chats=1354170870)) 
+    
+    # Angel one channel id -> 1354170870
+    @client.on(events.NewMessage(chats=2129439742)) 
     async def handler_2(event):
         """
         This handler is used to filter trade recommendations from Angel One's Advisory channel
@@ -117,16 +137,15 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
         buy_short_term_regex = re.compile(r'\bBUY', re.IGNORECASE)
        
         exit_regex = re.compile(r'\b(Exit )\b', re.IGNORECASE)
-        book_profits_regex = re.compile(r'\b(Book profit In)\b', re.IGNORECASE)
+        book_profits_regex = re.compile(r'\b(Book profits In)\b', re.IGNORECASE)
 
         if buy_short_term_regex.search(recommendation):
             try: 
                 print("This is a buy call.")
-                
                 scrip_name_regex = r'BUY\s+(.+?)\s\d+\s+(?:shares|lot) at \d+\.'
                 price_regex = r'at (\d+)'
-                stop_loss_regex = r'Message : SL (\d+) TGT'
-                target_regex= r'TGT (\d+) MODIFY'
+                stop_loss_regex = r'Message : SL (.*?) TGT'
+                target_regex= r'TGT\s*(\d+) MODIFY'
 
                 
                 transaction_details = buy_filter(recommendation, scrip_name_regex, price_regex, stop_loss_regex, target_regex)
@@ -146,18 +165,22 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
                     print("Not taking trade because share qty is 0 or limit not available")
             except Exception as e:
                 # TODO add exception alerting to telegram channel for manual intervention
+                exception_details = str(e)
+                traceback_details =  traceback.format_exc()
+                error_message = create_error_message("Angel One Channel", recommendation, exception_details, traceback_details)
+                await client.send_message(entity=2067424743, message=error_message)
                 print("Exception occured while processing BUY call from Angel One")
         elif exit_regex.search(recommendation):
             try:
                 print("This is a exit call.")
                 scrip_name_regex =""
                 target_regex = ""
-                if "@" in recommendation:
-                    scrip_name_regex =  r'EXIT\s+([^@]+) @'
-                    target_regex = r'@(\d+\.\d+)'
+                if "@" in recommendation or "AT" in recommendation or "at" in recommendation:
+                    scrip_name_regex =  r'EXIT\s+([^@]+) (?:@|at)'
+                    target_regex = r'@\s*(\d+\.\d+)'
                 else:
                     scrip_name_regex =  r'EXIT\s+(.+)'
-                    target_regex = r'@(\d+\.\d+)'
+                    target_regex = None
 
                 transaction_details = exit_filter(recommendation, scrip_name_regex, target_regex)
                 print("Cleaned transaction details received: ", transaction_details)
@@ -165,6 +188,10 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
                 five_paisa.sell(transaction_details['scrip'], transaction_details['target'])
             except Exception as e:
                 # TODO add exception alerting to telegram channel for manual intervention
+                exception_details = str(e)
+                traceback_details =  traceback.format_exc()
+                error_message = create_error_message("Angel One Channel", recommendation, exception_details, traceback_details)
+                await client.send_message(entity=2067424743, message=error_message)
                 print("Exception occured while processing EXIT CALL from Angel One")
                 pass
             
@@ -172,8 +199,8 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
             try:
                 print("This is a call to book profits")
                 
-                scrip_name_regex = r'BOOK PROFIT IN\s+([^\s@]+) @'
-                target_regex = r'@(\d+\.\d+)'
+                scrip_name_regex = r'Book Profits? IN\s+([^@]+) (?:@|at)'
+                target_regex = r'(?:@|at)\s*([\d.]+)'
                 
                 transaction_details = book_profits_filter(recommendation, scrip_name_regex, target_regex)
                 transaction_details['scrip'] = get_scrip_name_from_scrip_master(five_paisa.scrip_master, transaction_details['scrip'], "channel_3")
@@ -182,6 +209,10 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
                 five_paisa.sell(transaction_details['scrip'], transaction_details['target'])
             except Exception as e:
                 # TODO add exception alerting to telegram channel for manual intervention
+                exception_details = str(e)
+                traceback_details =  traceback.format_exc()
+                error_message = create_error_message("Angel One Channel", recommendation, exception_details, traceback_details)
+                await client.send_message(entity=2067424743, message=error_message)
                 print("Exception occured while processing BOOK PROFITS call from Angel One")    
         else:
             print("No regex match")

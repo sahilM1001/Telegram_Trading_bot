@@ -37,10 +37,19 @@ def get_scrip_name_from_scrip_master(scrip_master, scrip_name, channel_num):
         if channel_num == "channel_3":
             print("Inside channel 3")
             scrip_arr = scrip_name.split(" ")
-            search_key = scrip_arr[0] + " " + scrip_arr[1] + " " + scrip_arr[2].title() + " " + str(current_year) + " " + scrip_arr[-1] + " " + str(format(float(scrip_arr[-2]),'.2f'))
+            expiry_date = ""
+            if int(scrip_arr[1]) < 10:
+                expiry_date = "0"+str(int(scrip_arr[1]))
+            else:
+                expiry_date = scrip_arr[1]
+            search_key = scrip_arr[0] + " " + expiry_date + " " + scrip_arr[2].title() + " " + str(current_year) + " " + scrip_arr[-1] + " " + str(format(float(scrip_arr[-2]),'.2f'))
             return search_key
             row = ["", ""] 
             row[0] = scrip_master[scrip_master['Name'] == search_key].iloc[0]['Scripcode']
             row[1] = scrip_master[scrip_master['Name'] == search_key].iloc[0]['Exch']
             return row
 
+
+def create_error_message(message_source, message, exception, exception_traceback):
+    error_message = f"Message from: {message_source} \n\nMessage was: \n{message} \n\nException occured : {exception} \n\nException traceback: {exception_traceback}"
+    return error_message

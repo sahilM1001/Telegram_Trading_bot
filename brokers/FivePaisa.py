@@ -37,6 +37,7 @@ class FivePaisa(TradingDesk):
         """
         This function is used to download scrip master file from 5 paisa whenever the instance is created.
         """
+        print("Inside 5Paisa scrip master")
         scrip_master = pd.read_csv("https://images.5paisa.com/website/scripmaster-csv-format.csv")
         return scrip_master
 
