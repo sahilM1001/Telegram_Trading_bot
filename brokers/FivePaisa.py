@@ -64,7 +64,7 @@ class FivePaisa(TradingDesk):
 
         if lot_size != 1:
             share_qty = lot_size
-            print(f" for approved_postion_amount: {approved_position_amount} share_qty from lot size is {share_qty}")
+            print(f" for approved_postion_amount: {approved_position_amount} lot size is {share_qty}")
             if (share_qty * market_price) < approved_position_amount: 
                 share_qty = self.get_max_share_qty(share_qty * market_price, approved_position_amount, lot_size)
                 print(f" for approved_postion_amount: {approved_position_amount} share_qty from get max share qty is {share_qty}")
@@ -76,8 +76,9 @@ class FivePaisa(TradingDesk):
                                                ExchangeType=scrip_code_row['ExchType'], ScripCode = scrip_code_row['Scripcode'], 
                                                Qty=share_qty, Price=market_price, StopLossPrice = stop_loss)"""
             
-            df = pd.read_csv("brokers/order_tracking_v2.csv")
+            df = pd.read_csv("brokers/order_tracking_v3.csv")
 
+            self.CAPITAL -= (share_qty * market_price)
             new_row = {
                 "date": str(date.today()),
                 "time": str(time.strftime("%H:%M:%S", time.localtime())),
@@ -88,14 +89,17 @@ class FivePaisa(TradingDesk):
                 "quantity": share_qty,
                 "stop_loss": stop_loss,
                 "target": target,
-                "bought_at": market_price
+                "bought_at": market_price,
+                "position": "OPEN",
+                "capital_remaining": self.CAPITAL,
+                "brokerage": 20
             }
 
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             
-            df.to_csv("brokers/order_tracking_v2.csv", index=False)
+            df.to_csv("brokers/order_tracking_v3.csv", index=False)
 
-            self.CAPITAL -= (share_qty * market_price)
+            
         else:
             print(f"Shares were not bought because position amount {share_qty * market_price} > {self.get_position_amount()} approved position amount")
 
@@ -114,14 +118,15 @@ class FivePaisa(TradingDesk):
         scrip_code = scrip_code_row['Scripcode']
 
 
-        df = pd.read_csv("brokers/order_tracking_v2.csv")
+        df = pd.read_csv("brokers/order_tracking_v3.csv")
         
         
-        filtered_row = df[(df['order_type'] == "BUY") & (df['scrip_name'] == scrip_name)]
+        filtered_row = df[(df['order_type'] == "BUY") & (df['scrip_name'] == scrip_name) & (df['position'] == "OPEN")]
         quantity_value = filtered_row['quantity'].iloc[0] if not filtered_row.empty else 0
         bought_at = filtered_row['price'].iloc[0] if not filtered_row.empty else 0
 
         if filtered_row.shape[0] > 0:
+            self.CAPITAL += (quantity_value * target)
             new_row = {
                 "date": str(date.today()),
                 "time": str(time.strftime("%H:%M:%S", time.localtime())),
@@ -132,14 +137,15 @@ class FivePaisa(TradingDesk):
                 "quantity": quantity_value ,
                 "stop_loss": "",
                 "target": "",
-                "bought_at": bought_at
+                "bought_at": bought_at,
+                "position": "CLOSED",
+                "capital_remaining": self.CAPITAL,
+                "brokerage": 20
             }
 
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
 
-            df.to_csv("brokers/order_tracking_v2.csv", index=False)
-
-            self.CAPITAL += (quantity_value * target)
+            df.to_csv("brokers/order_tracking_v3.csv", index=False)
         else:
             print("Not selling as no previous buy found")
             

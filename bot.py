@@ -1,5 +1,6 @@
 import re, os
 from telethon import TelegramClient, events, sync
+from telethon.tl.types import PeerChannel
 from common.filters import buy_filter, exit_filter, book_profits_filter
 from common.helper import get_scrip_name_from_scrip_master, create_error_message
 from dotenv import load_dotenv, find_dotenv
@@ -14,7 +15,7 @@ api_hash = os.getenv('API_HASH')
 five_paisa = FivePaisa()
 
 
-with TelegramClient('session_7_dec', api_id , api_hash) as client:
+with TelegramClient('session_10_dec', api_id , api_hash) as client:
     
     client.start()
     print("Client is connected")
@@ -34,8 +35,11 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
     sys.exit()"""
     # Sahil test channel ID-> 2129439742
     # 5Paisa telegram channel id -> 1400983952
+    
+
     @client.on(events.NewMessage(chats=1400983952)) 
     async def handler(event):
+        exception_channel = await client.get_entity(PeerChannel(2067424743))
         """
         This handler is used to get trade recommendations from 5Paisa channel
         """
@@ -71,7 +75,7 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
                 exception_details = str(e)
                 traceback_details =  traceback.format_exc()
                 error_message = create_error_message("5Paisa Channel", recommendation, exception_details, traceback_details)
-                await client.send_message(entity=2067424743, message=error_message)
+                await client.send_message(exception_channel, message=error_message)
                 print("Exception occured while processing BUY call from 5 Paisa")
         elif exit_regex.search(recommendation):
             try:
@@ -95,7 +99,7 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
                 exception_details = str(e)
                 traceback_details =  traceback.format_exc()
                 error_message = create_error_message("5Paisa Channel", recommendation, exception_details, traceback_details)
-                await client.send_message(entity=2067424743, message=error_message)
+                await client.send_message(exception_channel, message=error_message)
 
                 print("Exception occured while processing EXIT call from 5 Paisa")
             
@@ -114,7 +118,7 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
                 exception_details = str(e)
                 traceback_details =  traceback.format_exc()
                 error_message = create_error_message("5Paisa Channel", recommendation, exception_details, traceback_details)
-                await client.send_message(entity=2067424743, message=error_message)
+                await client.send_message(exception_channel, message=error_message)
 
                 print("Exception occured while processing BOOK PROFITS call from 5 Paisa")
             
@@ -125,11 +129,11 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
         
     
     # Angel one channel id -> 1354170870
-    @client.on(events.NewMessage(chats=2129439742)) 
+    """@client.on(events.NewMessage(chats=1354170870)) 
     async def handler_2(event):
-        """
-        This handler is used to filter trade recommendations from Angel One's Advisory channel
-        """
+        
+        #This handler is used to filter trade recommendations from Angel One's Advisory channel
+        
         print("New message received on ANGEL ONE SECOND channel")
         print("Event text: ", event.raw_text)
         recommendation = event.raw_text
@@ -137,7 +141,7 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
         buy_short_term_regex = re.compile(r'\bBUY', re.IGNORECASE)
        
         exit_regex = re.compile(r'\b(Exit )\b', re.IGNORECASE)
-        book_profits_regex = re.compile(r'\b(Book profits In)\b', re.IGNORECASE)
+        book_profits_regex = re.compile(r'\b(Book profits? In)\b', re.IGNORECASE)
 
         if buy_short_term_regex.search(recommendation):
             try: 
@@ -215,7 +219,7 @@ with TelegramClient('session_7_dec', api_id , api_hash) as client:
                 await client.send_message(entity=2067424743, message=error_message)
                 print("Exception occured while processing BOOK PROFITS call from Angel One")    
         else:
-            print("No regex match")
+            print("No regex match")"""
 
 
     client.run_until_disconnected()
